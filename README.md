@@ -1,5 +1,6 @@
 [README (5).md](https://github.com/user-attachments/files/25169582/README.5.md)
 # Polyphonic Music Transcription on MusicNet — CTC vs Seq2Seq (Attention)
+Authors: Phillip olshausen, Livia kastrati
 
 This repository compares two complementary approaches to **polyphonic music transcription** (multiple notes at once) using the **MusicNet** dataset:
 
@@ -94,7 +95,7 @@ The encoder yields a time-indexed representation; downstream heads interpret it 
 
 ---
 
-# Part A — CTC Model
+# Part A — CTC Model (currently being updated)
 
 ## Why CTC?
 CTC (Connectionist Temporal Classification) is useful when:
