@@ -21,43 +21,9 @@ Both models share the same overall goal: given an audio waveform, predict the un
 
 ---
 
-## Repository structure (suggested)
+## Repository structure 
 
-> Adjust paths to match your environment.
 
-```
-.
-├─ notebooks/
-│  ├─ 00_preprocess.ipynb
-│  ├─ 10_ctc_model.ipynb
-│  ├─ 20_seq2seq_model.ipynb
-│  └─ 30_inference_and_visuals.ipynb
-├─ src/
-│  ├─ data/
-│  │  ├─ events.py              # token vocab + event encoding/decoding utilities
-│  │  ├─ features.py            # log-mel extraction (torch/torchaudio)
-│  │  ├─ manifest.py            # manifest building/validation
-│  │  └─ dataset.py             # NPZ-backed dataset + collate
-│  ├─ models/
-│  │  ├─ encoder_cnn_bilstm.py   # shared CNN–BiLSTM encoder
-│  │  ├─ ctc_head.py             # linear head + CTC decode helpers
-│  │  └─ s2s_attention.py        # additive attention + decoder
-│  ├─ training/
-│  │  ├─ train_ctc.py
-│  │  ├─ train_s2s.py
-│  │  └─ metrics.py              # TER, token-F1, onset/offset metrics
-│  └─ utils/
-│     ├─ midi.py                 # tokens → MIDI conversion
-│     └─ viz.py                  # attention, alignments, piano-roll plots
-├─ assets/
-│  ├─ figures/
-│  └─ slides/
-├─ checkpoints/
-├─ manifest.csv
-└─ README.md
-```
-
-If you currently keep everything in one notebook, that’s fine—this layout is the “portfolio-ready” direction.
 
 ---
 
