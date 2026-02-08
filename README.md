@@ -8,7 +8,7 @@ This repository studies **polyphonic music transcription** (multiple simultaneou
 2. **Seq2Seq transcription with additive attention** — event-token sequence modeling
 
 Both approaches take raw audio as input and aim to recover symbolic musical structure (pitch, onset, offset, duration).  
-All experiments, models, preprocessing, decoding, and visual analysis are implemented in a **single Jupyter notebook**, which contains a **fully documented, block-by-block explanation of the entire codebase** (note that the CTC notebook is currently being updated and is therefore incomplete. The Seq2Seq Notebook, however is complete).
+All experiments, models, preprocessing, decoding, and visual analysis are implemented in a **single Jupyter notebook**, which contains a **fully documented, block-by-block explanation of the entire codebase** (note that the CTC notebook is currently being updated and is therefore incomplete. The Seq2Seq Notebook, however is complete). You can also find a PPT folder that presents the full project and results.
 
 ---
 
@@ -37,17 +37,7 @@ All experiments, models, preprocessing, decoding, and visual analysis are implem
 ## Repository structure
 
 This repository is intentionally notebook-centric.  
-All logic lives in one reproducible notebook, supported by cached artifacts:
-
-```
-.
-├─ notebook.ipynb
-├─ mel_event_npz/
-├─ checkpoints/
-├─ figures/
-├─ manifest.csv
-└─ vocab_info.json
-```
+All logic lives in two reproducible notebooks, one for each model.
 
 ---
 
