@@ -1,277 +1,185 @@
-[README (5).md](https://github.com/user-attachments/files/25169582/README.5.md)
 # Polyphonic Music Transcription on MusicNet — CTC vs Seq2Seq (Attention)
-Authors: Phillip olshausen, Livia kastrati
 
-This repository compares two complementary approaches to **polyphonic music transcription** (multiple notes at once) using the **MusicNet** dataset:
+**Authors:** Phillip Olshausen, Livia Kastrati
 
-1. **CTC-based transcription** (frame-wise / monotonic alignment)
-2. **Seq2Seq transcription with additive attention** (event-token language modeling)
+This repository studies **polyphonic music transcription** (multiple simultaneous notes) on the **MusicNet** dataset by comparing two fundamentally different modeling paradigms:
 
-Both models share the same overall goal: given an audio waveform, predict the underlying musical note events (pitch + time), and evaluate the output with token-level and onset/offset-based metrics.
+1. **CTC-based transcription** — frame-wise pitch prediction with blanks and monotonic alignment  
+2. **Seq2Seq transcription with additive attention** — event-token sequence modeling
 
----
-
-## What this project does (high level)
-
-**Input:** audio waveform (MusicNet `.wav`)  
-**Labels:** per-track note events from MusicNet `.csv` (sample indices for start/end + pitch + instrument metadata)  
-**Features:** log-mel spectrogram segments extracted with a fixed hop length  
-**Outputs:**
-- **CTC:** per-frame token predictions collapsed by CTC rules
-- **Seq2Seq:** autoregressive **event token** sequence: time-shifts + note-on + note-off
+Both approaches take raw audio as input and aim to recover symbolic musical structure (pitch, onset, offset, duration).  
+All experiments, models, preprocessing, decoding, and visual analysis are implemented in a **single Jupyter notebook**, which contains a **fully documented, block-by-block explanation of the entire codebase**.
 
 ---
 
-## Repository structure 
+## Project overview
 
+**Input**
+- Audio waveform (`.wav`, MusicNet)
 
+**Ground truth**
+- Note-level annotations from MusicNet (`.csv`)
+- Sample-accurate `start_time` / `end_time` and MIDI pitch
+
+**Features**
+- Log-mel spectrogram segments with fixed hop length
+
+**Outputs**
+- **CTC:** frame-wise pitch probabilities + blank, collapsed via CTC decoding
+- **Seq2Seq:** autoregressive **event-token sequences** (time-shift, note-on, note-off)
+
+**Evaluation**
+- Token-level metrics (TER, token F1)
+- Musical event metrics (onset / offset F1 with tolerance)
+
+---
+
+## Repository structure
+
+This repository is intentionally notebook-centric.  
+All logic lives in one reproducible notebook, supported by cached artifacts:
+
+```
+.
+├─ notebook.ipynb
+├─ mel_event_npz/
+├─ checkpoints/
+├─ figures/
+├─ manifest.csv
+└─ vocab_info.json
+```
 
 ---
 
 ## Dataset setup (MusicNet)
 
-### Expected dataset layout (example)
+### Expected layout
 ```
 musicnet_small/
 ├─ train_data/
-│  ├─ 2156.wav
-│  └─ ...
 ├─ train_labels/
-│  ├─ 2156.csv
-│  └─ ...
 ├─ test_data/
 ├─ test_labels/
-└─ ...
 ```
 
-### What the label CSV contains
-The CSV typically includes:
-- `start_time`, `end_time`: **sample indices** in the waveform (not milliseconds)
-- `note`: MIDI pitch number
-- `instrument`: instrument ID (optional for this project)
-- `start_beat`, `end_beat`, `note_value`: beat-based metadata (not required for timing)
+### Label semantics
+- `start_time`, `end_time`: sample indices  
+- `note`: MIDI pitch  
+- `instrument`: instrument ID  
 
-**Timing detail (important):**  
-Even if `start_beat` / `end_beat` exists, the pipeline uses the **sample-accurate** `start_time` / `end_time` for alignment. You convert samples → frames using:
-
-- `frame_index = floor(sample_index / hop_length)`
-
-So note length is learned because the event encoding contains **time shifts** between note-on and note-off.
+Beat-based timing is ignored; all alignment uses sample-accurate timing.
 
 ---
 
-## Preprocessing pipeline
+## Shared acoustic encoder
 
-### 1) Segmenting audio
-Audio is split into fixed-length segments (e.g., a few seconds). For each segment you store:
-
-- `X`: log-mel spectrogram, shape `(T, M)`  
-- `y`: tokenized event sequence, shape `(L,)`  
-- `meta`: segment timing metadata (track id, segment start sample/frame, etc.)
-
-These are cached as `.npz` files for fast training:
-```
-mel_event_npz/
-├─ train_id2156_seg00001.npz
-├─ val_id2620_seg00012.npz
-└─ ...
-```
-
-### 2) Manifest
-A `manifest.csv` lists `split`, `npz_path`, and metadata. This becomes the single source of truth for train/val/test loaders.
+Both models share a **CNN–BiLSTM encoder**:
+- CNN front-end for time–frequency feature extraction  
+- Bidirectional LSTM for temporal context  
+- Output: sequence of encoder states
 
 ---
 
-## Shared audio encoder (used by both models)
+# Part A — CTC-based Transcription (Baseline)
 
-Both CTC and Seq2Seq use the same **CNN–BiLSTM encoder**:
+### What CTC predicts
+CTC predicts **frame-wise pitch classes plus a blank symbol**.  
+There are no explicit onset, offset, or duration tokens; note structure is inferred implicitly through alignment.
 
-1. **Log-mel spectrogram input**: `X ∈ R^{T×M}`
-2. **CNN blocks**: local time–frequency feature extraction, optional time downsampling
-3. **BiLSTM**: contextualize features in both directions over time  
-4. **Encoder outputs**: `H = (h_1, …, h_{T'})`, `h_t ∈ R^{d_enc}`
+### Strengths / limitations
 
-The encoder yields a time-indexed representation; downstream heads interpret it differently.
-
----
-
-# Part A — CTC Model (currently being updated)
-
-## Why CTC?
-CTC (Connectionist Temporal Classification) is useful when:
-- alignment between audio frames and labels is **monotonic** but unknown
-- you want frame-wise emissions and alignment marginalization
-
-## Model
-- Encoder outputs `H`
-- Linear projection + log-softmax to get per-frame token probabilities
-- **CTC loss** sums over all valid alignments between frames and the target sequence
-
-## Decoding
-- Greedy (collapse repeats + remove blank)
-- Optional beam search if implemented
-
-## Strengths / Weaknesses
 **Pros**
-- strong monotonic alignment bias
-- stable training even with limited data
-- relatively fast decoding
+- stable training  
+- strong monotonic alignment bias  
+- fast decoding  
 
 **Cons**
-- less expressive sequence modeling than autoregressive event generation
-- global musical constraints require post-processing or constrained decoding
+- limited sequence expressiveness  
+- weak global musical structure modeling  
 
 ---
 
-# Part B — Seq2Seq with Additive Attention (Detailed)
+# Part B — Seq2Seq with Additive Attention
 
-## What Seq2Seq is doing here
-Seq2Seq treats transcription as **event language modeling** conditioned on audio:
+### Core idea
+Seq2Seq models transcription as **event-level sequence generation**:
 
-\[
-p(y \mid X) = \prod_{t=1}^{L} p(y_t \mid y_{<t}, X)
-\]
+p(y | X) = ∏ p(y_t | y_<t, X)
 
-Yes—the model **predicts tokens** one by one.
+The model emits symbolic **music events** rather than frame-wise pitches.
 
 ---
 
-## Event-token vocabulary (what each token means)
+## Event-token vocabulary
 
-Your token stream represents the performance as discrete events:
+- `TIME_SHIFT(k)` — advance time by k frames  
+- `NOTE_ON(p)` — start pitch p  
+- `NOTE_OFF(p)` — end pitch p  
 
-### 1) `TIME_SHIFT(k)`
-Advances time forward by `k` frames (each frame = `hop_length / sr` seconds).  
-Used to express gaps and note durations.
+Special tokens: `SOS`, `EOS`, `PAD`
 
-### 2) `NOTE_ON(p)`
-Starts a note at pitch `p`.
-
-### 3) `NOTE_OFF(p)`
-Ends a note at pitch `p`.
-
-### Special tokens
-- `SOS`: start of sequence
-- `EOS`: end of sequence
-- `PAD`: padding for batching
+This representation explicitly encodes timing, duration, and polyphony.
 
 ---
 
-## How timing works (beats vs milliseconds)
+## Architecture
 
-Even if the label CSV includes beat information, the effective timing for learning/decoding comes from **sample indices**:
-
-- `start_time`, `end_time` are in samples
-- features have a hop of `hop_length` samples
-
-So:
-- `start_frame = floor(start_time / hop_length)`
-- `end_frame   = floor(end_time / hop_length)`
-- note duration in frames is `end_frame - start_frame`
-
-This becomes time-shifts in the token encoding.
-
-**Concept example**
-- `NOTE_ON(60)`
-- `TIME_SHIFT(12)`
-- `NOTE_OFF(60)`
-
-This means the note lasts `12` frames, i.e. `12 * hop_length / sr` seconds.
+- Shared CNN–BiLSTM encoder  
+- LSTM decoder with **additive (Bahdanau) attention**  
+- Autoregressive token prediction  
 
 ---
 
-## Seq2Seq architecture
+## Training
 
-### Encoder
-- CNN → BiLSTM → encoder states `H`
-
-### Decoder (Attention-RNN)
-At each step `t`:
-1. Embed previous token: `e_t = Emb(y_{t-1})`
-2. Compute additive attention weights:
-\[
-lpha_{t,i} = \mathrm{softmax}\left(v^	op 	anh(W_h s_{t-1} + W_s h_i)
-ight)
-\]
-3. Context vector:
-\[
-c_t = \sum_i lpha_{t,i} h_i
-\]
-4. LSTM update on `[e_t ; c_t]`
-5. Output logits over vocabulary and pick next token
-
-This matches your implementation: linear projections, tanh, vector `v`, masking, softmax, weighted sum.
+- Teacher forcing with cross-entropy loss  
+- Padding masked  
+- Class-weighted loss to address token imbalance  
+- Scheduled sampling to reduce exposure bias  
 
 ---
 
-## Training objective (teacher forcing)
+## Constrained decoding
 
-During training you use **teacher forcing** (feed ground-truth previous token).  
-Loss:
-\[
-\mathcal{L}(	heta)=\sum_{t=1}^{L} -\log p_	heta(y_t \mid y_{<t}, X)
-\]
+Decoding includes musical constraints:
+- no invalid note-on/off events  
+- polyphony limits  
+- EOS biasing and minimum-length enforcement  
 
-Implementation details:
-- CrossEntropyLoss with `ignore_index=PAD`
-- **class weights** to reduce imbalance (time shifts, EOS)
+A validation decode sweep selects optimal constraints without retraining.
 
 ---
 
-## Scheduled sampling
+## Evaluation metrics
 
-Teacher forcing creates exposure bias (test-time uses its own predictions).  
-Scheduled sampling gradually replaces ground-truth inputs with model outputs.
-
-Example schedule:
-- `ss_prob = min(0.2, 0.02*(epoch-1))`
+- **TER** (token error rate)  
+- **Token F1**  
+- **Onset / offset F1** with tolerance  
 
 ---
 
-## Constrained decoding (why it matters)
+## Visual diagnostics
 
-On small datasets, naive decoding can:
-- loop on time-shifts
-- spam note-ons
-- stop too early or too late
-
-Your constrained greedy decoder adds:
-- penalties for long time-shift runs
-- polyphony limits (`max_notes_per_frame`, `max_active_notes`)
-- validity rules (no NOTE_OFF for inactive notes, no NOTE_ON for active notes)
-- EOS ramp after `min_len`
-
-This is why decode “retuning” can change metrics substantially without retraining.
+The notebook generates:
+- attention heatmaps  
+- alignment overlays  
+- token-type confusion matrices  
+- pitch-level NOTE_ON confusion  
 
 ---
 
-## Metrics
+## Reproducible execution order
 
-### Token-level
-- **TER**: edit distance / target length
-- **Token-F1**: micro precision/recall/F1 from token counts
-
-### Musical onset/offset metrics
-- Convert tokens → onset/offset times
-- F1 with tolerance window (e.g., ±2 or ±3 frames)
-
----
-
-## Reproducible run order (single notebook)
-
-1. Config + vocab + manifest
-2. Precompute segments → NPZ
-3. Dataloaders
-4. Encoder definition
-5. **CTC** training/eval
-6. **Seq2Seq** training (fast epoch prints)
-7. Full decode sweep + final eval + visuals
-8. Inference: audio → tokens → MIDI + piano-roll
+1. Configuration & vocabulary  
+2. Dataset indexing & manifest  
+3. Feature preprocessing  
+4. Data loaders  
+5. Encoder definition  
+6. CTC training & evaluation  
+7. Seq2Seq training  
+8. Full decoding & metrics  
+9. Attention & confusion visualizations  
 
 ---
 
-## References (short)
-- MusicNet dataset (Thickstun et al.)
-- CTC: Graves et al.
-- Additive attention: Bahdanau et al.
-- Scheduled sampling: Bengio et al.
+
