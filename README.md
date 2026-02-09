@@ -2,7 +2,7 @@
 
 **Authors:** Phillip Olshausen, Livia Kastrati
 
-This repository studies **polyphonic music transcription** (multiple simultaneous notes) on the **MusicNet** dataset by comparing two fundamentally different modeling paradigms:
+This repository studies **polyphonic music transcription** (multiple simultaneous notes) on a subset of the **MusicNet** dataset by comparing two fundamentally different modeling paradigms:
 
 1. **CTC-based transcription** — frame-wise pitch prediction with blanks and monotonic alignment  
 2. **Seq2Seq transcription with additive attention** — event-token sequence modeling
