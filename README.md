@@ -50,7 +50,7 @@ All experiments, models, preprocessing, decoding, and visual analysis are implem
 
 ---
 
-## 🔎 Research Question
+## Research Question
 
 > How do frame-synchronous CTC decoding and attention-based Seq2Seq
 > event generation behave when transcribing polyphonic classical
@@ -61,7 +61,7 @@ dynamics, pitch confusion, entropy, and decoding robustness.
 
 ------------------------------------------------------------------------
 
-## 📁 Repository Structure
+## Repository Structure
 
     CTC/           → Frame-synchronous CTC implementation (CQT / HCQT)
     Seq2Seq/       → Event-based Seq2Seq model with additive attention
@@ -71,7 +71,7 @@ dynamics, pitch confusion, entropy, and decoding robustness.
 
 ------------------------------------------------------------------------
 
-## 🎵 Dataset
+## Dataset
 
 **MusicNet (Thickstun et al., 2017)**
 
@@ -85,7 +85,7 @@ Subset creation is fully reproducible via the `Subset/` folder.
 
 ------------------------------------------------------------------------
 
-## 🧠 Encoder Architecture
+## Encoder Architecture
 
 Both models use a:
 
@@ -102,7 +102,7 @@ Precise attention localization
 
 ------------------------------------------------------------------------
 
-# 🔷 CTC Model
+# CTC Model
 
 ## Formulation
 
@@ -149,7 +149,7 @@ Under constrained data, CTC proved robust and data-efficient.
 
 ------------------------------------------------------------------------
 
-# 🔶 Seq2Seq Model (Event-Based Transcription)
+# Seq2Seq Model (Event-Based Transcription)
 
 ## Event Vocabulary
 
@@ -208,7 +208,7 @@ MAESTRO-scale corpora).
 
 ------------------------------------------------------------------------
 
-# ⚖️ Comparative Summary
+# Comparative Summary
 
 | Aspect               | CTC                         | Seq2Seq                 |
 |----------------------|-----------------------------|-------------------------|
@@ -227,7 +227,7 @@ may surpass CTC at scale.
 
 ------------------------------------------------------------------------
 
-# 🚧 Limitations
+# Limitations
 
 -   Small 50-track subset
 -   Piano-heavy bias
@@ -238,7 +238,7 @@ may surpass CTC at scale.
 
 ------------------------------------------------------------------------
 
-# 🔮 Future Work
+# Future Work
 
 -   Label-consistent pitch-shift augmentation
 -   Multi-label CTC (chord tokens)
@@ -250,7 +250,7 @@ may surpass CTC at scale.
 ------------------------------------------------------------------------
 
 
-## 📄 Full Report
+## Full Report
 
 See `Report/CTC_Seq2Seq_Report.pdf` for:
 
