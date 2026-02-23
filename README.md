@@ -1,6 +1,6 @@
 # CTC & Seq2Seq for Polyphonic Automatic Music Transcription
 
-### HTW Berlin – Deep Learning Seminar (2026)
+
 
 **Phillip Olshausen, Livia Kastrati**
 
