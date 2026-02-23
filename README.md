@@ -6,7 +6,7 @@
 
 ------------------------------------------------------------------------
 
-## 🚀 Overview
+## Overview
 
 This repository presents a rigorous comparative study of two
 fundamentally different paradigms for **polyphonic Automatic Music
