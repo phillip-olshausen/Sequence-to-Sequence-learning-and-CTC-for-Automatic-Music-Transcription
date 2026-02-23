@@ -1,16 +1,35 @@
-# Polyphonic Music Transcription on MusicNet — CTC vs Seq2Seq (Attention)
+---
 
-**Authors:** Phillip Olshausen, Livia Kastrati
 
-This repository studies **polyphonic music transcription** (multiple simultaneous notes) on a subset (for limited computational power) of the **MusicNet** dataset by comparing two fundamentally different modeling paradigms:
+# CTC & Seq2Seq for Polyphonic Automatic Music Transcription
 
-1. **CTC-based transcription** — frame-wise pitch prediction with blanks and monotonic alignment  
-2. **Seq2Seq transcription with additive attention** — event-token sequence modeling
+### HTW Berlin – Deep Learning Seminar (2026)
 
-Both approaches take raw audio as input and aim to recover symbolic musical structure (pitch, onset, offset, duration).  
+**Phillip Olshausen, Livia Kastrati**
+
+------------------------------------------------------------------------
+
+## 🚀 Overview
+
+This repository presents a rigorous comparative study of two
+fundamentally different paradigms for **polyphonic Automatic Music
+Transcription (AMT)** on a constrained 50-track MusicNet subset:
+
+-   **Connectionist Temporal Classification (CTC)** — frame-synchronous
+    pitch prediction  
+-   **Seq2Seq with Additive Attention** — autoregressive event-token
+    generation
+
+Rather than a leaderboard-style benchmark, this project provides a
+**mechanistic, statistically grounded, and diagnostically rich
+comparison** under unified preprocessing and encoder architecture.
+
+The full seminar report is available in the `Report/` folder. Both approaches take raw audio as input and aim to recover symbolic musical structure (pitch, onset, offset, duration).  
 All experiments, models, preprocessing, decoding, and visual analysis are implemented in a **two respective Jupyter notebooks**, of which the Seq2Seq notebook contains a **fully documented, block-by-block explanation of the entire codebase** . You can also find a PPT folder that presents the full project and results.
 
----
+
+------------------------------------------------------------------------
+
 
 ## Project overview
 
@@ -34,142 +53,217 @@ All experiments, models, preprocessing, decoding, and visual analysis are implem
 
 ---
 
-## Repository structure
+## 🔎 Research Question
 
-This repository is intentionally notebook-centric.  
-All logic lives in two reproducible notebooks, one for each model.
+> How do frame-synchronous CTC decoding and attention-based Seq2Seq
+> event generation behave when transcribing polyphonic classical
+> excerpts under constrained data and compute?
 
----
+We investigate stability, data efficiency, alignment behavior, blank
+dynamics, pitch confusion, entropy, and decoding robustness.
 
-## Dataset setup (MusicNet)
+------------------------------------------------------------------------
 
-### Expected layout
-```
-musicnet_small/
-├─ train_data/
-├─ train_labels/
-├─ test_data/
-├─ test_labels/
-```
+## 📁 Repository Structure
 
-### Label semantics
-- `start_time`, `end_time`: sample indices  
-- `note`: MIDI pitch  
-- `instrument`: instrument ID  
+    CTC/           → Frame-synchronous CTC implementation (CQT / HCQT)
+    Seq2Seq/       → Event-based Seq2Seq model with additive attention
+    Subset/        → MusicNet 50-track subset construction pipeline
+    Report/        → Final seminar report (LaTeX PDF)
+    Presentation/  → Seminar presentation slides
 
-Beat-based timing is ignored; all alignment uses sample-accurate timing.
+------------------------------------------------------------------------
 
----
+## 🎵 Dataset
 
-## Shared acoustic encoder
+**MusicNet (Thickstun et al., 2017)**
 
-Both models share a **CNN–BiLSTM encoder**:
-- CNN front-end for time–frequency feature extraction  
-- Bidirectional LSTM for temporal context  
-- Output: sequence of encoder states
+-   50-track subset
+-   32 train / 8 validation / 10 test (work-disjoint split)
+-   76% solo piano dominance
+-   Median ≈ 886 note events per track
+-   Dense polyphony (p95 ≈ 4 simultaneous notes)
 
----
+Subset creation is fully reproducible via the `Subset/` folder.
 
-# Part A — CTC-based Transcription (Baseline)
+------------------------------------------------------------------------
 
-### What CTC predicts
-CTC predicts **frame-wise pitch classes plus a blank symbol**.  
-There are no explicit onset, offset, or duration tokens; note structure is inferred implicitly through alignment.
+## 🧠 Encoder Architecture
 
-### Strengths / limitations
+Both models use a unified:
 
-**Pros**
-- stable training  
-- strong monotonic alignment bias  
-- fast decoding  
+**CNN → BiLSTM Encoder**
 
-**Cons**
-- limited sequence expressiveness  
-- weak global musical structure modeling  
+-   3 Conv-BN-ReLU blocks
+-   Asymmetric pooling (1×2 frequency-only pooling)
+-   No temporal compression
+-   BiLSTM (hidden size = 256 per direction)
+-   Output dimension: 512 per frame
 
----
+This preserves time resolution for: - CTC alignment feasibility -
+Precise attention localization
 
-# Part B — Seq2Seq with Additive Attention
+------------------------------------------------------------------------
 
-### Core idea
-Seq2Seq models transcription as **event-level sequence generation**:
+# 🔷 CTC Model
 
-p(y | X) = ∏ p(y_t | y_<t, X)
+## Formulation
 
-The model emits symbolic **music events** rather than frame-wise pitches.
+-   Vocabulary: 88 MIDI pitches + BLANK
+-   Frame-wise posterior distributions
+-   Greedy decoding with blank-penalty calibration
+-   Forward–backward marginalization
 
----
+## Acoustic Features
 
-## Event-token vocabulary
+-   Constant-Q Transform (CQT)
+-   Harmonic CQT (HCQT, 5 harmonic channels)
 
-- `TIME_SHIFT(k)` — advance time by k frames  
-- `NOTE_ON(p)` — start pitch p  
-- `NOTE_OFF(p)` — end pitch p  
+HCQT exposes harmonic structure explicitly and improves robustness in
+dense polyphony.
 
-Special tokens: `SOS`, `EOS`, `PAD`
+## Evaluation
 
-This representation explicitly encodes timing, duration, and polyphony.
+-   Token F1 (micro-averaged)
+-   Token Error Rate (Levenshtein-based)
+-   Length ratio
+-   Per-pitch F1
+-   Blank dominance diagnostics
+-   Entropy analysis
+-   Cross-seed robustness
 
----
+## Best Configuration (HCQT, no augmentation)
+
+Mean across 5 seeds:
+
+Test Token F1 = 0.7145 ± 0.0176  
+Test TER = 0.6858 ± 0.0688  
+95% CI F1 = \[0.6927, 0.7363\]
+
+### Observations
+
+-   Stable convergence
+-   Controlled blank dynamics
+-   Strong CNN gradient contribution
+-   Harmonic preprocessing beneficial
+-   Data augmentation harmful without label consistency
+
+Under constrained data, CTC proved robust and data-efficient.
+
+------------------------------------------------------------------------
+
+# 🔶 Seq2Seq Model (Event-Based Transcription)
+
+## Event Vocabulary
+
+-   TIME_SHIFT
+-   NOTE_ON(p)
+-   NOTE_OFF(p)
+-   EOS
+
+Polyphony is encoded explicitly via consecutive NOTE_ON tokens and
+duration modeling through NOTE_OFF.
 
 ## Architecture
 
-- Shared CNN–BiLSTM encoder  
-- LSTM decoder with **additive (Bahdanau) attention**  
-- Autoregressive token prediction  
+Encoder → Additive Attention → LSTM Decoder
 
----
+Additive attention:
+
+e\_{t,i} = vᵀ tanh(W_h s_t + W_s h_i)
+
+Provides dynamic alignment between acoustic frames and symbolic events.
 
 ## Training
 
-- Teacher forcing with cross-entropy loss  
-- Padding masked  
-- Class-weighted loss to address token imbalance  
-- Scheduled sampling to reduce exposure bias  
+-   Weighted cross-entropy
+-   Scheduled sampling (linear increase)
+-   AdamW optimizer
+-   Gradient clipping
+-   Constrained greedy decoding
 
----
+### Decoding Constraints
 
-## Constrained decoding
+-   Valid NOTE_ON / NOTE_OFF transitions enforced
+-   Polyphony caps
+-   Max events per frame
+-   EOS scheduling
+-   Termination control
 
-Decoding includes musical constraints:
-- no invalid note-on/off events  
-- polyphony limits  
-- EOS biasing and minimum-length enforcement  
+## Diagnostics
 
-A validation decode sweep selects optimal constraints without retraining.
+-   Attention heatmaps
+-   Attention peak trajectories
+-   Attention entropy evolution
+-   Pitch confusion matrices
+-   Onset precision / recall
 
----
+## Behavioral Findings
 
-## Evaluation metrics
+-   Learned symbolic event grammar
+-   Structurally valid sequences
+-   Weaker onset localization under small data
+-   More data-intensive than CTC
 
-- **TER** (token error rate)  
-- **Token F1**  
-- **Onset / offset F1** with tolerance  
+Despite only 32 training tracks, Seq2Seq achieved meaningful structure
+modeling — suggesting strong scaling potential under pretraining (e.g.,
+MAESTRO-scale corpora).
 
----
+------------------------------------------------------------------------
 
-## Visual diagnostics
+# ⚖️ Comparative Summary
 
-The notebook generates:
-- attention heatmaps  
-- alignment overlays  
-- token-type confusion matrices  
-- pitch-level NOTE_ON confusion  
+| Aspect               | CTC                         | Seq2Seq                 |
+|----------------------|-----------------------------|-------------------------|
+| Alignment            | Monotonic                   | Learned (attention)     |
+| Duration modeling    | No                          | Yes                     |
+| Polyphony modeling   | Linearized                  | Explicit grammar        |
+| Stability (low data) | High                        | Moderate                |
+| Data efficiency      | Strong                      | More data-hungry        |
+| Interpretability     | Blank & entropy diagnostics | Attention visualization |
 
----
+Under constrained data, **CTC outperformed in robustness and
+stability**.
 
-## Reproducible execution order
+Seq2Seq, however, demonstrated strong symbolic modeling potential and
+may surpass CTC at scale.
 
-1. Configuration & vocabulary  
-2. Dataset indexing & manifest  
-3. Feature preprocessing  
-4. Data loaders  
-5. Encoder definition  
-6. CTC training & evaluation  
-7. Seq2Seq training  
-8. Full decoding & metrics  
-9. Attention & confusion visualizations  
+------------------------------------------------------------------------
 
----
+# 🚧 Limitations
+
+-   Small 50-track subset
+-   Piano-heavy bias
+-   CTC Token F1 is order-invariant
+-   Greedy decoding only
+-   No language-model prior
+-   CTC lacks duration modeling
+
+------------------------------------------------------------------------
+
+# 🔮 Future Work
+
+-   Label-consistent pitch-shift augmentation
+-   Multi-label CTC (chord tokens)
+-   Hybrid CTC + attention decoding
+-   Transformer decoder replacement
+-   Beam search with pitch-language prior
+-   Large-scale Seq2Seq pretraining
+
+------------------------------------------------------------------------
 
 
+## 📄 Full Report
+
+See `Report/CTC_Seq2Seq_Report.pdf` for:
+
+-   Mathematical derivations
+-   Hyperparameter tables
+-   Full experimental results
+-   Statistical analysis
+-   Extended diagnostics
+-   Reproducibility appendix
+
+------------------------------------------------------------------------
+
+© 2026 – HTW Berlin – Deep Learning Seminar
