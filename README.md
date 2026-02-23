@@ -87,7 +87,7 @@ Subset creation is fully reproducible via the `Subset/` folder.
 
 ## 🧠 Encoder Architecture
 
-Both models use a unified:
+Both models use a:
 
 **CNN → BiLSTM Encoder**
 
